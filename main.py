@@ -22,13 +22,13 @@ def main():
     try:
         deps = get_dependencies(args.repo, args.package_name, args.version)
         if deps:
-            print(f"📦 Зависимости для {args.package_name}-{args.version}:")
+            print(f"Зависимости для {args.package_name}-{args.version}:")
             for dep in deps:
                 print(f"  - {dep}")
         else:
-            print("❕ Зависимостей не найдено.")
+            print("Зависимостей не найдено.")
     except Exception as e:
-        print(f"❌ Ошибка: {e}")
+        print(f"Ошибка: {e}")
         sys.exit(1)
 
 

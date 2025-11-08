@@ -8,15 +8,15 @@ def download_apkindex(repo_url):
     #Скачивает APKINDEX.tar.gz из заданного репозитория
     if not repo_url.endswith("/"):
         repo_url += "/"
-    arch = "x86_64"  # можно сделать параметром позже
+    arch = "x86_64"
     apkindex_url = f"{repo_url}/{arch}/APKINDEX.tar.gz"
 
-    print(f"📥 Скачиваю {apkindex_url} ...")
+    print(f"Скачиваю {apkindex_url} ...")
     tmp_path = tempfile.mktemp(suffix=".tar.gz")
 
     try:
         urllib.request.urlretrieve(apkindex_url, tmp_path)
-        print("✅ Файл успешно скачан.")
+        print("Файл успешно скачан.")
     except Exception as e:
         raise RuntimeError(f"Ошибка при загрузке APKINDEX: {e}")
 
@@ -57,7 +57,7 @@ def parse_dependencies(index_text, package_name, version):
 
 
 def get_dependencies(repo_url, package_name, version):
-    #Основная функция получения зависимостей."""
+    #Основная функция получения зависимостей.
     tmp_file = download_apkindex(repo_url)
     index_data = extract_apkindex(tmp_file)
     os.remove(tmp_file)
