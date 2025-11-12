@@ -5,13 +5,12 @@ import os
 
 
 def download_apkindex(repo_url):
-    #Скачивает APKINDEX.tar.gz из заданного репозитория
     if not repo_url.endswith("/"):
         repo_url += "/"
     arch = "x86_64"
     apkindex_url = f"{repo_url}/{arch}/APKINDEX.tar.gz"
 
-    print(f"Скачиваю {apkindex_url} ...")
+    print(f"Скачиваю {apkindex_url}")
     tmp_path = tempfile.mktemp(suffix=".tar.gz")
 
     try:
@@ -24,7 +23,6 @@ def download_apkindex(repo_url):
 
 
 def extract_apkindex(filepath):
-    #Извлекает содержимое файла APKINDEX из архива."""
     with tarfile.open(filepath, "r:gz") as tar:
         for member in tar.getmembers():
             if member.name == "APKINDEX":
@@ -37,8 +35,7 @@ def extract_apkindex(filepath):
 
 
 def parse_dependencies(index_text, package_name, version):
-    #Находит и возвращает список зависимостей пакета."""
-    entries = index_text.split("\n\n")  # каждый пакет отделён пустой строкой
+    entries = index_text.split("\n\n")
     for entry in entries:
         lines = entry.splitlines()
         pkg = None
@@ -57,9 +54,76 @@ def parse_dependencies(index_text, package_name, version):
 
 
 def get_dependencies(repo_url, package_name, version):
-    #Основная функция получения зависимостей.
     tmp_file = download_apkindex(repo_url)
     index_data = extract_apkindex(tmp_file)
     os.remove(tmp_file)
     deps = parse_dependencies(index_data, package_name, version)
     return deps
+
+
+# === Новый код для Этапа 3 ===
+def parse_test_repo(file_path):
+    """
+    Парсит тестовый репозиторий.
+    Формат файла: каждая строка вида
+    A: B C D
+    где A зависит от B, C, D.
+    """
+    repo = {}
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or ":" not in line:
+                continue
+            pkg, deps_str = line.split(":", 1)
+            deps = deps_str.strip().split() if deps_str.strip() else []
+            repo[pkg.strip()] = deps
+    return repo
+
+
+def build_dependency_graph(repo_source, package, version, mode="real", exclude_substring=""):
+    """
+    Строит граф зависимостей рекурсивно (DFS).
+    Поддерживает режим 'test' для локальных текстовых файлов.
+    """
+    graph = {}
+    visited = set()
+    stack = set()
+
+    def dfs(pkg):
+        if exclude_substring and exclude_substring in pkg:
+            return []
+
+        if pkg in stack:
+            print(f"⚠️ Обнаружен цикл в зависимостях: {pkg}")
+            return []
+
+        if pkg in visited:
+            return graph.get(pkg, [])
+
+        stack.add(pkg)
+        visited.add(pkg)
+
+        if mode == "test":
+            deps = test_repo.get(pkg, [])
+        else:
+            try:
+                deps = get_dependencies(repo_source, pkg, version)
+            except Exception:
+                deps = []
+
+        deps = [d for d in deps if exclude_substring not in d]
+
+        graph[pkg] = deps
+
+        for dep in deps:
+            dfs(dep)
+
+        stack.remove(pkg)
+        return deps
+
+    if mode == "test":
+        test_repo = parse_test_repo(repo_source)
+
+    dfs(package)
+    return graph
