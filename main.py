@@ -21,7 +21,7 @@ def main():
     print("=============================\n")
 
     try:
-        print("Построение графа зависимостей...\n")
+        print("Построение графа зависимостей\n")
         graph = build_dependency_graph(
             repo_source=args.repo,
             package=args.package_name,
@@ -30,7 +30,7 @@ def main():
             exclude_substring=args.filter
         )
 
-        print("Граф зависимостей (в формате JSON):")
+        print("Граф зависимостей:")
         print(json.dumps(graph, indent=4, ensure_ascii=False))
 
         with open(args.output_file, "w", encoding="utf-8") as f:

@@ -10,12 +10,12 @@ def download_apkindex(repo_url):
     arch = "x86_64"
     apkindex_url = f"{repo_url}/{arch}/APKINDEX.tar.gz"
 
-    print(f"Скачиваю {apkindex_url}")
+    print(f"Скачивается {apkindex_url}")
     tmp_path = tempfile.mktemp(suffix=".tar.gz")
 
     try:
         urllib.request.urlretrieve(apkindex_url, tmp_path)
-        print("Файл успешно скачан.")
+        print("Файл успешно скачан")
     except Exception as e:
         raise RuntimeError(f"Ошибка при загрузке APKINDEX: {e}")
 
@@ -28,7 +28,7 @@ def extract_apkindex(filepath):
             if member.name == "APKINDEX":
                 f = tar.extractfile(member)
                 if f is None:
-                    raise RuntimeError("Файл APKINDEX не найден в архиве.")
+                    raise RuntimeError("Файл APKINDEX не найден в архиве")
                 data = f.read().decode("utf-8")
                 return data
     raise RuntimeError("Файл APKINDEX не найден.")
@@ -61,13 +61,9 @@ def get_dependencies(repo_url, package_name, version):
     return deps
 
 
-# === Новый код для Этапа 3 ===
 def parse_test_repo(file_path):
     """
     Парсит тестовый репозиторий.
-    Формат файла: каждая строка вида
-    A: B C D
-    где A зависит от B, C, D.
     """
     repo = {}
     with open(file_path, "r", encoding="utf-8") as f:
@@ -84,7 +80,6 @@ def parse_test_repo(file_path):
 def build_dependency_graph(repo_source, package, version, mode="real", exclude_substring=""):
     """
     Строит граф зависимостей рекурсивно (DFS).
-    Поддерживает режим 'test' для локальных текстовых файлов.
     """
     graph = {}
     visited = set()
@@ -95,7 +90,7 @@ def build_dependency_graph(repo_source, package, version, mode="real", exclude_s
             return []
 
         if pkg in stack:
-            print(f"⚠️ Обнаружен цикл в зависимостях: {pkg}")
+            print(f"Обнаружен цикл в зависимостях: {pkg}")
             return []
 
         if pkg in visited:
