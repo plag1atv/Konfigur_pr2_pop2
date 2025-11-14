@@ -3,6 +3,8 @@ import tempfile
 import urllib.request
 import os
 from collections import deque, defaultdict
+import subprocess
+import tempfile
 
 
 def download_apkindex(repo_url):
@@ -196,7 +198,7 @@ def get_install_order(deps_graph, package_name):
 
 def get_dependencies(repo_url, package_name, version, filter_str=""):
     """Основная функция получения графа зависимостей"""
-    print("🔍 Строим граф зависимостей")
+    print("Строим граф зависимостей")
 
     tmp_file = download_apkindex(repo_url)
     index_data = extract_apkindex(tmp_file)
@@ -235,3 +237,170 @@ def get_dependencies_from_file(file_path, package_name, version, filter_str=""):
     dfs_build_graph(package_name, version, all_packages, visited, graph, filter_str, current_path)
 
     return graph
+
+
+def generate_mermaid_graph(deps_graph, root_package):
+    """Генерирует Mermaid диаграмму графа зависимостей"""
+
+    mermaid_lines = [
+        "%% Граф зависимостей для пакета: " + root_package,
+        "graph TD",
+    ]
+
+    # Добавляем корневой пакет с особым стилем
+    mermaid_lines.append(f"    {root_package}[{root_package}]")
+    mermaid_lines.append(f"    style {root_package} fill:#ff6b6b,color:#fff")
+
+    # Собираем все узлы и связи
+    added_nodes = {root_package}
+
+    for package, dependencies in deps_graph.items():
+        if package not in added_nodes:
+            mermaid_lines.append(f"    {package}[{package}]")
+            added_nodes.add(package)
+
+        for dep in dependencies:
+            if dep not in added_nodes and dep in deps_graph:
+                mermaid_lines.append(f"    {dep}[{dep}]")
+                added_nodes.add(dep)
+
+            if dep in deps_graph:  # Связываем только существующие пакеты
+                mermaid_lines.append(f"    {package} --> {dep}")
+
+    # Добавляем пакеты без зависимостей (листья)
+    for package in deps_graph:
+        if package not in added_nodes:
+            mermaid_lines.append(f"    {package}[{package}]")
+            added_nodes.add(package)
+
+    mermaid_lines.append("")
+
+    return "\n".join(mermaid_lines)
+
+
+def save_graph_as_png(deps_graph, root_package, output_file):
+    """Сохраняет граф зависимостей как PNG изображение используя Mermaid CLI"""
+
+    try:
+        # Генерируем Mermaid код
+        mermaid_code = generate_mermaid_graph(deps_graph, root_package)
+
+        # Создаем временный файл с Mermaid кодом
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.mmd', delete=False) as temp_file:
+            temp_file.write(mermaid_code)
+            temp_mmd_file = temp_file.name
+
+        # Пытаемся использовать mermaid-cli для генерации PNG
+        try:
+            # Способ 1: mermaid-cli (mmdc)
+            result = subprocess.run([
+                'mmdc',
+                '-i', temp_mmd_file,
+                '-o', output_file,
+                '-t', 'default',
+                '-b', 'white',
+                '-w', '1600',
+                '-H', '1200'
+            ], capture_output=True, text=True, check=True)
+
+            print("PNG сгенерирован с помощью mermaid-cli")
+            success = True
+
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Способ 2: Попробуем использовать Python библиотеку
+            try:
+                import pygraphviz as pgv
+
+                # Создаем граф с помощью pygraphviz
+                graph = pgv.AGraph(directed=True)
+                graph.node_attr.update(style='filled', fillcolor='lightblue', fontname='Arial')
+
+                # Добавляем корневой узел с другим цветом
+                graph.add_node(root_package, fillcolor='lightcoral')
+
+                # Добавляем все узлы и связи
+                for package, dependencies in deps_graph.items():
+                    graph.add_node(package)
+                    for dep in dependencies:
+                        if dep in deps_graph:
+                            graph.add_edge(package, dep)
+
+                # Сохраняем как PNG
+                graph.draw(output_file, prog='dot', format='png')
+                print("PNG сгенерирован с помощью pygraphviz")
+                success = True
+
+            except ImportError:
+                print("Для генерации PNG установите один из пакетов:")
+                print("    - mermaid-cli: npm install -g @mermaid-js/mermaid-cli")
+                print("    - pygraphviz: pip install pygraphviz")
+                success = False
+
+        # Удаляем временный файл
+        os.unlink(temp_mmd_file)
+
+        return success
+
+    except Exception as e:
+        print(f"Ошибка при генерации PNG: {e}")
+        return False
+
+
+def compare_with_apk_graph(package_name, deps_graph):
+    """Сравнивает наш граф с выводом штатных инструментов apk"""
+    print(f"\nСравнение графа с инструментами apk...")
+
+    try:
+        import subprocess
+
+        # Получаем дерево зависимостей через apk
+        result = subprocess.run(['apk', 'info', '-R', package_name],
+                                capture_output=True, text=True, check=True)
+
+        # Анализируем вывод apk
+        apk_deps = set()
+        for line in result.stdout.split('\n'):
+            if line.strip() and not line.startswith(package_name):
+                dep = line.split('-')[0] if '-' in line else line.strip()
+                if dep:
+                    apk_deps.add(dep)
+
+        # Наш граф зависимостей
+        our_deps = set(deps_graph.keys())
+        our_deps.add(package_name)
+
+        print(f"Наш анализ: {len(our_deps)} пакетов")
+        print(f"APK анализ: {len(apk_deps)} пакетов")
+
+        # Анализ расхождений
+        only_our = our_deps - apk_deps
+        only_apk = apk_deps - our_deps
+        common = our_deps & apk_deps
+
+        print(f"\nРезультаты сравнения:")
+        print(f"Общие пакеты: {len(common)}")
+        print(f"Только в нашем анализе: {len(only_our)}")
+        print(f"Только в apk: {len(only_apk)}")
+
+        if only_our:
+            print(f"   Пакеты: {', '.join(sorted(only_our))}")
+        if only_apk:
+            print(f"   Пакеты: {', '.join(sorted(only_apk))}")
+
+        # Возможные причины расхождений
+        if only_our or only_apk:
+            print(f"\nВозможные причины расхождений:")
+            print("1. Разные алгоритмы разрешения зависимостей")
+            print("2. Учет версий пакетов в apk")
+            print("3. Влияние уже установленных пакетов")
+            print("4. Обработка опциональных зависимостей")
+            print("5. Различия в парсинге имен пакетов")
+
+        return common, only_our, only_apk
+
+    except subprocess.CalledProcessError as e:
+        print(f"Ошибка при вызове apk: {e}")
+        return set(), set(), set()
+    except FileNotFoundError:
+        print("Команда apk не найдена")
+        return set(), set(), set()
