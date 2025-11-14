@@ -1,5 +1,35 @@
-A: B C
-B: C D
-C: E
-D: C
-E:
+P:A
+V:1.0
+D:B C
+
+P:B
+V:1.0
+D:D E
+
+P:C
+V:1.0
+D:E F
+
+P:D
+V:1.0
+D:
+
+P:E
+V:1.0
+D:G
+
+P:F
+V:1.0
+D:
+
+P:G
+V:1.0
+D:
+
+P:H
+V:1.0
+D:I
+
+P:I
+V:1.0
+D:H

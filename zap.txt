@@ -1,0 +1,8 @@
+Базовый случай:
+python main.py --package-name A --repo test_repo.txt --mode graph --version 1.0 --output-file output.txt
+
+С фильтрацией:
+python main.py --package-name A --repo test_repo.txt --mode graph --version 1.0 --output-file output.txt --filter E
+
+С циклической зависимостью:
+python main.py --package-name H --repo test_repo.txt --mode graph --version 1.0 --output-file output.txt
