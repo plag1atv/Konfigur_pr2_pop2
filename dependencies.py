@@ -2,6 +2,7 @@ import tarfile
 import tempfile
 import urllib.request
 import os
+from collections import deque, defaultdict
 
 
 def download_apkindex(repo_url):
@@ -124,9 +125,78 @@ def dfs_build_graph(package_name, version, all_packages, visited, graph, filter_
     current_path.pop()
 
 
+def topological_sort(graph, start_package):
+    """Топологическая сортировка графа зависимостей"""
+    visited = set()
+    temp_visited = set()
+    order = []
+    cycles = []
+
+    def visit(node, path):
+        if node in temp_visited:
+            # Найден цикл
+            cycle_start = path.index(node)
+            cycle = path[cycle_start:] + [node]
+            cycles.append(cycle)
+            return
+        if node in visited:
+            return
+
+        temp_visited.add(node)
+        path.append(node)
+
+        # Рекурсивно посещаем всех соседей
+        for neighbor in graph.get(node, []):
+            if neighbor in graph:  # Проверяем, что сосед существует в графе
+                visit(neighbor, path.copy())
+
+        temp_visited.remove(node)
+        visited.add(node)
+        order.append(node)
+
+    # Начинаем обход с целевого пакета
+    visit(start_package, [])
+
+    # Выводим предупреждения о циклах
+    for cycle in cycles:
+        print(f"Обнаружен цикл: {' -> '.join(cycle)}")
+
+    return order
+
+
+def get_install_order(deps_graph, package_name):
+    """Определяет порядок установки зависимостей"""
+    print("Определяем порядок установки")
+
+    # Создаем инвертированный граф для топологической сортировки
+    inverted_graph = defaultdict(list)
+    all_nodes = set()
+
+    for node, deps in deps_graph.items():
+        all_nodes.add(node)
+        for dep in deps:
+            if dep in deps_graph:  # Добавляем только существующие пакеты
+                inverted_graph[dep].append(node)
+                all_nodes.add(dep)
+
+    # Топологическая сортировка
+    install_order = topological_sort(deps_graph, package_name)
+
+    # Переворачиваем порядок, чтобы зависимости шли перед пакетами, которые от них зависят
+    install_order.reverse()
+
+    # Убеждаемся, что целевой пакет идет последним
+    if package_name in install_order:
+        install_order.remove(package_name)
+    install_order.append(package_name)
+
+    print(f"Всего пакетов для установки: {len(install_order)}")
+    return install_order
+
+
 def get_dependencies(repo_url, package_name, version, filter_str=""):
     """Основная функция получения графа зависимостей"""
-    print("Строим граф зависимостей...")
+    print("🔍 Строим граф зависимостей")
 
     tmp_file = download_apkindex(repo_url)
     index_data = extract_apkindex(tmp_file)
@@ -153,7 +223,7 @@ def get_dependencies_from_file(file_path, package_name, version, filter_str=""):
     with open(file_path, 'r') as f:
         index_data = f.read()
 
-    # Парсим все пакеты
+    # Парсим все пакеты (формат как в APKINDEX)
     all_packages = parse_all_packages(index_data)
     print(f"Загружено {len(all_packages)} пакетов из тестового файла")
 

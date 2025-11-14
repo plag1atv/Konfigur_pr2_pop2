@@ -1,8 +1,11 @@
-Базовый случай:
-python main.py --package-name A --repo test_repo.txt --mode graph --version 1.0 --output-file output.txt
+Порядок установки для простого случая:
+python main.py --package-name A --repo test_repo.txt --mode install-order --version 1.0 --output-file order.txt
 
-С фильтрацией:
-python main.py --package-name A --repo test_repo.txt --mode graph --version 1.0 --output-file output.txt --filter E
+Порядок установки с циклической зависимостью:
+python main.py --package-name H --repo test_repo.txt --mode install-order --version 1.0 --output-file order_cycle.txt
 
-С циклической зависимостью:
-python main.py --package-name H --repo test_repo.txt --mode graph --version 1.0 --output-file output.txt
+Сравнение с реальным apk (на реальной системе):
+python main.py --package-name curl --repo http://dl-cdn.alpinelinux.org/alpine/latest-stable/main --mode install-order --version 1.0 --output-file curl_order.txt --compare-with-apk
+
+Сложный граф:
+python main.py --package-name K --repo test_repo.txt --mode install-order --version 1.0 --output-file complex_order.txt
